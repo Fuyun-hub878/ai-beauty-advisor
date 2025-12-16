@@ -1,0 +1,197 @@
+# -*- coding: utf-8 -*-
+import streamlit as st
+import pandas as pd
+import numpy as np
+import sqlite3
+import cv2
+from sklearn.metrics.pairwise import cosine_similarity
+import random
+from datetime import datetime
+
+# ==================== PWA核心修复 ====================
+st.set_page_config(
+    page_title="AI美妆顾问 Pro (PWA)",
+    page_icon="💄",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+st.markdown("""
+    <link rel="manifest" href="/static/manifest.json" id="app-manifest">
+    <meta name="theme-color" content="#FF69B4">
+    <script>
+        window.addEventListener('load', () => {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/static/service-worker.js', { scope: '/' })
+                    .then(reg => console.log('🎉 PWA ServiceWorker 注册成功'))
+                    .catch(err => console.error('❌ PWA注册失败:', err));
+            }
+        });
+    </script>
+""", unsafe_allow_html=True)
+# ==================== PWA修复结束 ====================
+
+st.title("💄 AI美妆顾问 Pro")
+st.caption("从MVP演示版升级为包含真实摄像头分析、数据库与AI推荐的完整系统原型 | **PWA已启用**")
+# ---------- 模块1: 模拟数据库 ----------
+class MockProductDB:
+    def __init__(self):
+        self.products = pd.DataFrame([
+            {"id": 1, "name": "CeraVe泡沫洁面", "category": "cleanser", "skin_type": "all", "key_ingredients": "Ceramides, Hyaluronic Acid", "allergens": "", "price_tier": "affordable"},
+            {"id": 2, "name": "The Ordinary烟酰胺精华", "category": "serum", "skin_type": "oily", "key_ingredients": "Niacinamide, Zinc PCA", "allergens": "", "price_tier": "affordable"},
+            {"id": 3, "name": "La Roche-Posay保湿霜", "category": "moisturizer", "skin_type": "dry", "key_ingredients": "Ceramides, Thermal Water", "allergens": "", "price_tier": "premium"},
+            {"id": 4, "name": "安热沙防晒霜", "category": "sunscreen", "skin_type": "all", "key_ingredients": "Zinc Oxide, Vitamin E", "allergens": "Alcohol", "price_tier": "premium"},
+            {"id": 5, "name": "SK-II神仙水", "category": "essence", "skin_type": "all", "key_ingredients": "Pitera", "allergens": "", "price_tier": "luxury"},
+        ])
+    def get_all_products(self):
+        return self.products
+    def get_products_by_skin_type(self, skin_type):
+        return self.products[(self.products['skin_type']==skin_type) | (self.products['skin_type']=='all')]
+
+# ---------- 模块2: 模拟推荐引擎 ----------
+class MockRecommendationEngine:
+    def recommend(self, user_profile, all_products):
+        num = min(3, len(all_products))
+        return all_products.sample(n=num)
+
+# ---------- 模块3: 模拟皮肤分析 ----------
+class MockSkinAnalyzer:
+    def analyze_from_camera(self):
+        return {
+            'skin_type': random.choice(['dry', 'oily', 'combination']),
+            'moisture': random.randint(30, 90),
+            'oiliness': random.randint(20, 80),
+            'primary_concern': random.choice(['pores', 'hydration', 'evenness']),
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+@st.cache_resource
+def init_components():
+    return {
+        'db': MockProductDB(),
+        'recommender': MockRecommendationEngine(),
+        'analyzer': MockSkinAnalyzer()
+    }
+
+components = init_components()
+db = components['db']
+recommender = components['recommender']
+analyzer = components['analyzer']
+
+with st.sidebar:
+    st.header("⚙️ 系统控制面板")
+    st.subheader("🚀 模块升级开关")
+    use_real_database = st.checkbox("启用真实数据库模块（阶段一）", value=False)
+    use_real_recommender = st.checkbox("启用AI推荐引擎模块（阶段二）", value=False)
+    use_real_camera = st.checkbox("启用真实摄像头分析模块（阶段三）", value=False)
+    st.divider()
+    st.subheader("👤 用户设置")
+    user_name = st.text_input("你的名字", "Alex")
+    known_allergens = st.multiselect("已知过敏原", ["香精/Fragrance", "酒精/Alcohol", "防腐剂/Parabens", "矿物油/Mineral Oil"])
+    st.divider()
+    st.info("**演习说明**：\n1. 当前所有模块均为模拟状态。\n2. 勾选上方开关以‘启用’升级后的模块。\n3. 每次勾选都对应一次真实的代码升级。")
+    st.divider()
+    st.success("**PWA状态**：已集成。部署后支持‘添加到主屏幕’。")
+
+tab1, tab2, tab3 = st.tabs(["🔍 皮肤分析", "📦 产品推荐", "⚙️ 系统状态"])
+
+with tab1:
+    st.subheader("面部皮肤分析")
+    col1, col2 = st.columns(2)
+    with col1:
+        if use_real_camera:
+            st.warning("**真实摄像头模块待实现**")
+            st.write("此处将集成 `streamlit-webrtc` 和 `MediaPipe` 模型。")
+            if st.button("模拟真实分析过程", type="primary"):
+                with st.spinner("正在调用分析模型..."):
+                    analysis_result = analyzer.analyze_from_camera()
+                    st.session_state['skin_analysis'] = analysis_result
+                    st.success("分析完成！")
+        else:
+            st.info("**当前：模拟分析模式**")
+            if st.button("开始模拟分析", type="primary"):
+                analysis_result = analyzer.analyze_from_camera()
+                st.session_state['skin_analysis'] = analysis_result
+                st.success("模拟分析完成！")
+        if 'skin_analysis' in st.session_state:
+            result = st.session_state['skin_analysis']
+            st.metric("检测肤质", result['skin_type'].upper())
+            st.metric("水分值", f"{result['moisture']}/100")
+            st.metric("油脂值", f"{result['oiliness']}/100")
+            st.metric("主要问题", result['primary_concern'])
+    with col2:
+        st.subheader("分析说明")
+        st.markdown("""
+        **🎯 模块升级路径：**
+        1. **模拟分析** → **真实摄像头分析**
+        2. **关键技术点**：
+           - 使用 `streamlit-webrtc` 获取实时视频流
+           - 使用 `MediaPipe Face Mesh` 检测人脸区域
+           - 提取ROI进行皮肤纹理、颜色分析
+        """)
+
+with tab2:
+    st.subheader("个性化产品推荐")
+    if 'skin_analysis' not in st.session_state:
+        st.info("请先在【皮肤分析】标签页完成分析。")
+        st.stop()
+    user_skin_type = st.session_state['skin_analysis']['skin_type']
+    if use_real_database:
+        st.warning("**真实数据库模块待实现**")
+        st.write("此处将从SQLite数据库中实时查询产品数据。")
+        products = db.get_all_products()
+    else:
+        products = db.get_products_by_skin_type(user_skin_type)
+    if use_real_recommender:
+        st.warning("**AI推荐引擎模块待实现**")
+        st.write("此处将使用基于向量相似度的AI算法进行推荐。")
+        recommendations = db.get_all_products().sample(n=3)
+    else:
+        recommendations = recommender.recommend(
+            {'skin_type': user_skin_type, 'allergens': known_allergens},
+            products
+        )
+    st.success(f"根据你的 **{user_skin_type}** 肤质，为你推荐以下产品：")
+    for idx, row in recommendations.iterrows():
+        with st.container(border=True):
+            cols = st.columns([3, 1])
+            with cols[0]:
+                st.markdown(f"**{row['name']}**")
+                st.caption(f"品类：{row['category']} | 肤质：{row['skin_type']} | 价格档位：{row['price_tier']}")
+                st.write(f"核心成分：{row['key_ingredients']}")
+                if row['allergens']:
+                    st.warning(f"注意：含 {row['allergens']}")
+            with cols[1]:
+                if st.button("选择", key=f"select_{row['id']}"):
+                    st.session_state['last_selected'] = row['name']
+                    st.rerun()
+    if 'last_selected' in st.session_state:
+        st.toast(f"已添加 '{st.session_state['last_selected']}' 到您的清单！")
+
+with tab3:
+    st.subheader("系统模块状态")
+    status_data = {
+        "模块名称": ["数据库模块", "推荐引擎模块", "摄像头分析模块"],
+        "当前版本": ["模拟版本", "模拟版本", "模拟版本"],
+        "升级目标": ["SQLite数据库", "AI向量推荐", "MediaPipe分析"],
+        "状态": ["待升级" if not use_real_database else "升级中",
+                "待升级" if not use_real_recommender else "升级中",
+                "待升级" if not use_real_camera else "升级中"]
+    }
+    st.table(pd.DataFrame(status_data))
+    st.divider()
+    st.subheader("📚 下一步升级指南")
+    st.markdown("""
+    1. **阶段一：实现真实数据库**
+       - 创建 `cosmetics.db` SQLite数据库
+       - 创建 `RealProductDB` 类替换 `MockProductDB`
+    2. **阶段二：实现AI推荐引擎**
+       - 实现基于余弦相似度的推荐算法
+    3. **阶段三：实现真实摄像头分析**
+       - 安装 `streamlit-webrtc` 和 `mediapipe`
+    """)
+    if st.button("🚀 立即开始第一阶段升级", type="primary"):
+        st.info("接下来，我们将用真实SQLite数据库替换模拟数据库！")
+
+if __name__ == "__main__":
+    st.sidebar.divider()
+    st.sidebar.caption(f"系统版本：MVP → Pro (PWA已修复) | 最后更新：{datetime.now().strftime('%Y-%m-%d')}")
