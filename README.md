@@ -53,7 +53,7 @@ streamlit run app.py
 获取产品推荐和美妆建议
 🌐 在线体验
 
-https://[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://ai-beauty-advisor-irev5hzxb3jcfkrwqnggfa.streamlit.app)static.streamlit.io/badges/streamlit_badge_black_white.svg
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://ai-beauty-advisor-irev5hzxb3jcfkrwqnggfa.streamlit.app)
 
 注：部署Streamlit后替换上面的链接
 
